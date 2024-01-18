@@ -26,7 +26,7 @@ tools = [tool]
 
 st_callback = StreamlitCallbackHandler(st.container())
 
-llm = OpenAI(temperature=0, streaming=True, model="gpt-4")
+llm = OpenAI(temperature=0.7, streaming=True)
 agent = initialize_agent(
     tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True
 )
