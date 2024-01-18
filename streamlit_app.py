@@ -1,7 +1,7 @@
+import os
 from operator import itemgetter
 
 import streamlit as st
-from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import (
     AgentExecutor,
@@ -26,8 +26,6 @@ from langchain_core.runnables import (
     RunnablePassthrough,
 )
 from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
-
-load_dotenv()
 
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=30)
 docs = text_splitter.split_documents(documents=[Document(page_content="Ather")])
