@@ -14,7 +14,6 @@ beautifulsoup4==4.12.2
 blinker==1.7.0
 cachetools==5.3.1
 certifi==2023.11.17
-cffi @ file:///private/tmp/cffi-20231014-5567-1hyue8f/cffi-1.16.0
 chardet==5.2.0
 charset-normalizer==3.3.2
 click==8.1.3
@@ -25,7 +24,6 @@ dataclasses-json==0.6.3
 debugpy==1.6.7
 decorator==5.1.1
 devtools==0.12.2
-distlib @ file:///private/tmp/python-distlib-20231124-5231-2n0vb3/distlib-0.3.7
 distro==1.9.0
 editdistance==0.6.2
 efficientnet==1.0.0
@@ -118,7 +116,6 @@ pyarrow==14.0.2
 pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pyclipper==1.3.0.post4
-pycparser @ file:///private/tmp/pycparser-20231013-5787-1anpge2/pycparser-2.21
 pydantic==2.3.0
 pydantic_core==2.6.3
 pydeck==0.8.1b0
