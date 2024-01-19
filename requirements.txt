@@ -4,3 +4,4 @@ faiss-cpu
 tiktoken
 langchain-community
 langchainhub
+sentence-transformers
