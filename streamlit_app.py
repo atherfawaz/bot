@@ -1,39 +1,130 @@
+from dataclasses import dataclass
+from enum import Enum
+
 import streamlit as st
-from langchain.agents import (
-    AgentType,
-    initialize_agent,
+from langchain.chains import (
+    ConversationalRetrievalChain,
+    LLMChain,
 )
-from langchain.callbacks import StreamlitCallbackHandler
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.tools.retriever import create_retriever_tool
+from langchain.memory import (
+    ConversationBufferMemory,
+    StreamlitChatMessageHistory,
+)
+from langchain.prompts import PromptTemplate
 from langchain_community.vectorstores import FAISS
-from langchain_core.documents.base import Document
-from langchain_openai import OpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=30)
-docs = text_splitter.split_documents(documents=[Document(page_content="Ather")])
-vectorstore = FAISS.from_documents(
-    docs[:50],
-    embedding=OpenAIEmbeddings(),
-)
-retriever = vectorstore.as_retriever()
-tool = create_retriever_tool(
-    retriever,
-    "search_catalog",
-    "Searches and returns information about products sold on noon.com. It will return product details. Query it when you need information about products.",
-)
-tools = [tool]
+history = StreamlitChatMessageHistory(key="st_history_key")
 
-st_callback = StreamlitCallbackHandler(st.container())
+USER = "user"
+ASSISTANT = "ai"
+MESSAGES = "messages"
 
-llm = OpenAI(temperature=0.7, streaming=True)
-agent = initialize_agent(
-    tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True
-)
 
-if prompt := st.chat_input():
-    st.chat_message("user").write(prompt)
-    with st.chat_message("assistant"):
-        st_callback = StreamlitCallbackHandler(st.container())
-        response = agent.run(prompt, callbacks=[st_callback])
-        st.write(response)
+class ChainMethod(Enum):
+    STUFF = "stuff"
+    MAPREDUCE = "map_reduce"
+    REFINE = "refine"
+
+
+@dataclass
+class Message:
+    actor: str
+    payload: str
+
+
+@st.cache_resource
+def get_llm() -> ChatOpenAI:
+    return ChatOpenAI(temperature=0.1, model="gpt-4", streaming=True, verbose=True)
+
+
+@st.cache_resource
+def get_faiss_retriever():
+    vectorstore = FAISS.load_local("faiss_index", embeddings=OpenAIEmbeddings())
+    retriever = vectorstore.as_retriever()
+    return retriever
+
+
+def get_llm_chain_w_customsearch():
+    condense_question_template = """
+
+        Return text in the original language of the follow up question.
+        Never rephrase the follow up question given the chat history unless the follow up question needs context.
+        
+        Chat History: {chat_history}
+        Follow Up question: {question}
+        Standalone question:
+    """
+    condense_question_prompt = PromptTemplate.from_template(
+        template=condense_question_template
+    )
+
+    combine_prompt = PromptTemplate(
+        template="""Use the following pieces of context and chat history to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        Context: {context}
+        Chat history: {chat_history}
+        Question: {question} 
+        Helpful Answer:""",
+        input_variables=["context", "question", "chat_history"],
+    )
+
+    memory = ConversationBufferMemory(
+        memory_key="chat_history",
+        input_key="question",
+        output_key="answer",
+        human_prefix=USER,
+        ai_prefix=ASSISTANT,
+        return_messages=True,
+        chat_memory=history,
+    )
+
+    retriever = get_faiss_retriever()
+
+    conversation = ConversationalRetrievalChain.from_llm(
+        llm=get_llm(),
+        retriever=retriever,
+        verbose=True,
+        memory=memory,
+        combine_docs_chain_kwargs={"prompt": combine_prompt},
+        chain_type=ChainMethod.STUFF.value,
+        rephrase_question=False,
+        condense_question_prompt=condense_question_prompt,
+        condense_question_llm=get_llm(),
+        return_source_documents=True,
+    )
+
+    return conversation
+
+
+def initialize_session_state():
+    st.title("🦜🔗 Noon Chatbot")
+    if len(history.messages) == 0:
+        history.add_ai_message("Hi there! How can I help you?")
+
+    if "llm_chain" not in st.session_state:
+        st.session_state["llm_chain"] = get_llm_chain_w_customsearch()
+
+
+def get_llm_chain_from_session() -> LLMChain:
+    return st.session_state["llm_chain"]
+
+
+initialize_session_state()
+
+msg: Message
+for msg in history.messages:
+    st.chat_message(msg.type).write(msg.content)
+
+prompt: str = st.chat_input("Enter a prompt here")
+
+if prompt:
+    # history.add_user_message(prompt)
+    st.chat_message(USER).write(prompt)
+    with st.spinner("Please wait.."):
+        print(f"YOUR PROMPT={prompt}")
+        llm_chain = get_llm_chain_from_session()
+        response: str = llm_chain(
+            {"question": prompt, "chat_history": history.messages}
+        )["answer"]
+        # history.add_ai_message(response)
+        st.chat_message(ASSISTANT).write(response)
