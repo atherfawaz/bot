@@ -39,7 +39,7 @@ class Message:
 
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
-    return ChatOpenAI(temperature=0.1, model="gpt-4-32k", streaming=True, verbose=True)
+    return ChatOpenAI(temperature=0.1, model="gpt-4", streaming=True, verbose=True)
 
 
 @st.cache_resource
