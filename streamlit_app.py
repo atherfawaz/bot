@@ -39,16 +39,14 @@ class Message:
 
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
-    return ChatOpenAI(temperature=0.1, model="gpt-4", streaming=True, verbose=True)
+    return ChatOpenAI(temperature=0.1, model="gpt-4-32k", streaming=True, verbose=True)
 
 
 @st.cache_resource
 def get_faiss_retriever():
     vectorstore = FAISS.load_local(
         "faiss_index",
-        embeddings=HuggingFaceEmbeddings(
-            model_name="all-MiniLM-L6-v2", model_kwargs={"device": "mps"}
-        ),
+        embeddings=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2"),
     )
     retriever = vectorstore.as_retriever()
     return retriever
