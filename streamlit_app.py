@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 import streamlit as st
-from dotenv import load_dotenv
+
+# from dotenv import load_dotenv
 from langchain.chains import (
     ConversationalRetrievalChain,
     LLMChain,
@@ -17,7 +18,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
 
 history = StreamlitChatMessageHistory(key="st_history_key")
-load_dotenv()
+# load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
