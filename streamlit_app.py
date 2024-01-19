@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 import streamlit as st
+from dotenv import load_dotenv
 from langchain.chains import (
     ConversationalRetrievalChain,
     LLMChain,
@@ -11,10 +12,12 @@ from langchain.memory import (
     StreamlitChatMessageHistory,
 )
 from langchain.prompts import PromptTemplate
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 
 history = StreamlitChatMessageHistory(key="st_history_key")
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -40,14 +43,18 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_faiss_retriever():
-    vectorstore = FAISS.load_local("faiss_index", embeddings=OpenAIEmbeddings())
+    vectorstore = FAISS.load_local(
+        "faiss_index",
+        embeddings=HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2", model_kwargs={"device": "mps"}
+        ),
+    )
     retriever = vectorstore.as_retriever()
     return retriever
 
 
 def get_llm_chain_w_customsearch():
     condense_question_template = """
-
         Return text in the original language of the follow up question.
         Never rephrase the follow up question given the chat history unless the follow up question needs context.
         
