@@ -1,2 +1,0 @@
-*.psd !text !filter !merge !diff
-*.ipynb !text !filter !merge !diff
