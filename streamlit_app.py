@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 import streamlit as st
-
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import (
     ConversationalRetrievalChain,
     LLMChain,
@@ -14,11 +14,11 @@ from langchain.memory import (
 )
 from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_openai import ChatOpenAI
 
 history = StreamlitChatMessageHistory(key="st_history_key")
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -39,16 +39,23 @@ class Message:
 
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
-    return ChatOpenAI(temperature=0.1, model="gpt-4", streaming=True, verbose=True)
+    return ChatOpenAI(
+        temperature=0.7,
+        model="gpt-4",
+        streaming=True,
+        verbose=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+    )
 
 
 @st.cache_resource
-def get_faiss_retriever():
-    vectorstore = FAISS.load_local(
-        "faiss_index",
-        embeddings=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2"),
+def get_retriever():
+    vectorstore = Pinecone.from_existing_index(
+        "noon-catalog",
+        HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2"),
+        "text",
     )
-    retriever = vectorstore.as_retriever()
+    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 5})
     return retriever
 
 
@@ -66,7 +73,7 @@ def get_llm_chain_w_customsearch():
     )
 
     combine_prompt = PromptTemplate(
-        template="""Use the following pieces of context and chat history to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+        template="""You are a helpful assistant for an e-commerce website. You return product catalog and information based on the following pieces of context and chat history to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
         Context: {context}
         Chat history: {chat_history}
         Question: {question} 
@@ -84,11 +91,9 @@ def get_llm_chain_w_customsearch():
         chat_memory=history,
     )
 
-    retriever = get_faiss_retriever()
-
     conversation = ConversationalRetrievalChain.from_llm(
         llm=get_llm(),
-        retriever=retriever,
+        retriever=get_retriever(),
         verbose=True,
         memory=memory,
         combine_docs_chain_kwargs={"prompt": combine_prompt},
