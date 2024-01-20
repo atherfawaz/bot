@@ -5,3 +5,4 @@ tiktoken
 langchain-community
 langchainhub
 sentence-transformers
+pinecone-client
