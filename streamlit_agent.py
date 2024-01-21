@@ -1,6 +1,5 @@
 import streamlit as st
-
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent, load_tools
 from langchain.chains import LLMChain
@@ -14,7 +13,7 @@ from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAI
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -31,7 +30,7 @@ class PurchaseInput(BaseModel):
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         temperature=0.7,
-        model="gpt-4",
+        model="gpt-4-1106-preview",
         streaming=True,
         # verbose=True,
         # callbacks=[StreamingStdOutCallbackHandler()],
