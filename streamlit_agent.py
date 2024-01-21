@@ -91,6 +91,7 @@ def get_llm_agent():
 
 
 def initialize_session_state():
+    st.set_page_config(page_title="Noon Chatbot", page_icon="🟡")
     st.title("🟡 Noon Chatbot")
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
