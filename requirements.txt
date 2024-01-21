@@ -6,3 +6,4 @@ langchain-community
 langchainhub
 sentence-transformers
 pinecone-client
+numexpr
