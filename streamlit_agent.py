@@ -1,5 +1,6 @@
 import streamlit as st
-from dotenv import load_dotenv
+
+# from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent, load_tools
 from langchain.chains import LLMChain
@@ -13,7 +14,7 @@ from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAI
 
-load_dotenv()
+# load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
