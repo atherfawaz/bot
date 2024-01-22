@@ -3,12 +3,12 @@ import streamlit as st
 # from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent, load_tools
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
 from langchain.pydantic_v1 import BaseModel, Field
 from langchain.tools import tool
 from langchain.tools.retriever import create_retriever_tool
-from langchain_community.callbacks import StreamlitCallbackHandler
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_core.runnables.history import RunnableWithMessageHistory
@@ -19,8 +19,26 @@ from langchain_openai import ChatOpenAI, OpenAI
 USER = "user"
 ASSISTANT = "ai"
 MESSAGES = "messages"
-
 history = StreamlitChatMessageHistory(key="st_history_key")
+
+
+class StreamHandler(BaseCallbackHandler):
+    def __init__(
+        self, container: st.delta_generator.DeltaGenerator, initial_text: str = ""
+    ):
+        self.container = container
+        self.text = initial_text
+        self.run_id_ignore_token = None
+
+    def on_llm_start(self, serialized: dict, prompts: list, **kwargs):
+        if prompts[0].startswith("Human"):
+            self.run_id_ignore_token = kwargs.get("run_id")
+
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        if self.run_id_ignore_token == kwargs.get("run_id", False):
+            return
+        self.text += token
+        self.container.markdown(self.text)
 
 
 class PurchaseInput(BaseModel):
@@ -29,13 +47,7 @@ class PurchaseInput(BaseModel):
 
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
-    return ChatOpenAI(
-        temperature=0.7,
-        model="gpt-4-1106-preview",
-        streaming=True,
-        # verbose=True,
-        # callbacks=[StreamingStdOutCallbackHandler()],
-    )
+    return ChatOpenAI(temperature=0.7, model="gpt-4-1106-preview", streaming=True)
 
 
 @st.cache_resource
@@ -45,7 +57,7 @@ def get_retriever():
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
-    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 3})
+    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
     return retriever
 
 
@@ -105,19 +117,20 @@ def get_llm_agent_from_session() -> LLMChain:
 
 initialize_session_state()
 
+for msg in history.messages:
+    st.chat_message(msg.type).write(msg.content)
+
 prompt: str = st.chat_input("Ask a question")
 if prompt:
-    with st.spinner("Please wait.."):
-        st_callback = StreamlitCallbackHandler(st.container())
+    st.chat_message(USER).write(prompt)
+    with st.chat_message(ASSISTANT):
+        stream_handler = StreamHandler(st.empty())
         agent = get_llm_agent_from_session()
         result = agent.invoke(
             {"input": prompt},
             config={
-                "callbacks": [st_callback],
+                "callbacks": [stream_handler],
                 "configurable": {"session_id": "<foo>"},
             },
         )
         response = result["output"]
-
-for msg in history.messages:
-    st.chat_message(msg.type).write(msg.content)
