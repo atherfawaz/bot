@@ -1,6 +1,6 @@
 import streamlit as st
-from devtools import debug
-from dotenv import load_dotenv
+
+# from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent, load_tools
 from langchain.callbacks.base import BaseCallbackHandler
@@ -15,13 +15,7 @@ from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAI
 
-load_dotenv()
-
-response = False
-prompt_tokens = 0
-completion_tokes = 0
-total_tokens_used = 0
-cost_of_response = 0
+# load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
