@@ -4,6 +4,7 @@ import streamlit as st
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent, load_tools
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
 from langchain.pydantic_v1 import BaseModel, Field
@@ -47,7 +48,13 @@ class PurchaseInput(BaseModel):
 
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
-    return ChatOpenAI(temperature=0.7, model="gpt-4-1106-preview", streaming=True)
+    return ChatOpenAI(
+        temperature=0.7,
+        model="gpt-4-1106-preview",
+        streaming=True,
+        verbose=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+    )
 
 
 @st.cache_resource
@@ -92,7 +99,7 @@ def get_llm_agent():
     agent = create_openai_tools_agent(
         llm, tools, hub.pull("hwchase17/openai-tools-agent")
     )
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=False)
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
     agent_with_chat_history = RunnableWithMessageHistory(
         agent_executor,
         lambda session_id: history,
@@ -103,8 +110,11 @@ def get_llm_agent():
 
 
 def initialize_session_state():
-    st.set_page_config(page_title="Noon Chatbot", page_icon="🟡")
-    st.title("🟡 Noon Chatbot")
+    st.set_page_config(page_title="Noon Chatbot", page_icon="🟡", layout="wide")
+    st.title(":orange[Noon] Chatbot")
+    st.header("", divider="rainbow")
+    st.sidebar.title("About")
+    st.sidebar.info("This chatbot uses GPT-4 with all-mpnet-base-v2 embeddings.")
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
     if "llm_chain" not in st.session_state:
@@ -117,13 +127,17 @@ def get_llm_agent_from_session() -> LLMChain:
 
 initialize_session_state()
 
+if len(history.messages) == 0 or st.sidebar.button("Clear message history"):
+    history.clear()
+    history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
+
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
 
 prompt: str = st.chat_input("Ask a question")
 if prompt:
     st.chat_message(USER).write(prompt)
-    with st.chat_message(ASSISTANT):
+    with st.spinner("Thinking..."):
         stream_handler = StreamHandler(st.empty())
         agent = get_llm_agent_from_session()
         result = agent.invoke(
