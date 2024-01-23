@@ -73,9 +73,9 @@ def get_tool_llm():
     return OpenAI(temperature=0)
 
 
-@st.cache_resource
-def get_prebuilt_agents():
-    return load_tools(["llm-math"], llm=get_tool_llm())
+# @st.cache_resource
+# def get_prebuilt_agents():
+#     return load_tools(["llm-math"], llm=get_tool_llm())
 
 
 @tool("buy-product", args_schema=PurchaseInput)
@@ -91,7 +91,7 @@ def get_llm_agent():
         "search_catalog",
         "Searches and returns information about products sold on noon.com. It will return product details. Query it when you need information about products.",
     )
-    tools = get_prebuilt_agents()
+    tools = []
     tools.append(retriever_tool)
     tools.append(buy_product)
 
