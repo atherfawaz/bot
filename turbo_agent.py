@@ -50,14 +50,14 @@ class PurchaseInput(BaseModel):
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         temperature=0.7,
-        model="gpt-4-1106-preview",
+        model="gpt-3.5-turbo-1106",
         streaming=True,
         verbose=True,
         callbacks=[StreamingStdOutCallbackHandler()],
     )
 
 
-@st.cache_resource
+@st.cache_resource(ttl="1h")
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
         "catalog-768",
@@ -73,9 +73,9 @@ def get_tool_llm():
     return OpenAI(temperature=0)
 
 
-@st.cache_resource
-def get_prebuilt_agents():
-    return load_tools(["llm-math"], llm=get_tool_llm())
+# @st.cache_resource
+# def get_prebuilt_agents():
+#     return load_tools(["llm-math"], llm=get_tool_llm())
 
 
 @tool("buy-product", args_schema=PurchaseInput)
@@ -91,7 +91,7 @@ def get_llm_agent():
         "search_catalog",
         "Searches and returns information about products sold on noon.com. It will return product details. Query it when you need information about products.",
     )
-    tools = get_prebuilt_agents()
+    tools = []
     tools.append(retriever_tool)
     tools.append(buy_product)
 
@@ -114,7 +114,9 @@ def initialize_session_state():
     st.title(":orange[Noon] Chatbot")
     st.header("", divider="rainbow")
     st.sidebar.title("About")
-    st.sidebar.info("This chatbot uses GPT-4 with all-mpnet-base-v2 embeddings.")
+    st.sidebar.info(
+        "This chatbot uses GPT 3.5 Turbo with all-mpnet-base-v2 embeddings."
+    )
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
     if "llm_chain" not in st.session_state:
@@ -134,8 +136,7 @@ if len(history.messages) == 0 or st.sidebar.button("Clear message history"):
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
 
-prompt: str = st.chat_input("Ask a question")
-if prompt:
+if prompt := st.chat_input("Your message"):
     st.chat_message(USER).write(prompt)
     with st.spinner("Thinking..."):
         stream_handler = StreamHandler(st.empty())
