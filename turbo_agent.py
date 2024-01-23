@@ -20,7 +20,7 @@ from langchain_openai import ChatOpenAI, OpenAI
 USER = "user"
 ASSISTANT = "ai"
 MESSAGES = "messages"
-history = StreamlitChatMessageHistory(key="st_history_key")
+history = StreamlitChatMessageHistory()
 
 
 class StreamHandler(BaseCallbackHandler):
@@ -42,8 +42,8 @@ class StreamHandler(BaseCallbackHandler):
         self.container.markdown(self.text)
 
 
-class PurchaseInput(BaseModel):
-    query: str = Field(description="should be the name of a product to buy")
+# class PurchaseInput(BaseModel):
+#     query: str = Field(description="should be the name of a product to buy")
 
 
 @st.cache_resource
@@ -78,10 +78,10 @@ def get_tool_llm():
 #     return load_tools(["llm-math"], llm=get_tool_llm())
 
 
-@tool("buy-product", args_schema=PurchaseInput)
-def buy_product(query: str) -> str:
-    """Use this function to place an order and purchase products."""
-    return f"Your {query} order has been successfully placed and will be delivered to your doorstep in 45 minutes."
+# @tool("buy-product", args_schema=PurchaseInput)
+# def buy_product(query: str) -> str:
+#     """Use this function to place an order and purchase products."""
+#     return f"Your {query} order has been successfully placed and will be delivered to your doorstep in 45 minutes."
 
 
 def get_llm_agent():
@@ -93,7 +93,7 @@ def get_llm_agent():
     )
     tools = []
     tools.append(retriever_tool)
-    tools.append(buy_product)
+    # tools.append(buy_product)
 
     llm = get_llm()
     agent = create_openai_tools_agent(
