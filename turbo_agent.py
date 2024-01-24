@@ -1,7 +1,7 @@
 import streamlit as st
 
 # from devtools import debug
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
@@ -21,7 +21,7 @@ from langchain_core.prompts import (
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAI
 
-load_dotenv()
+# load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -91,6 +91,7 @@ def get_llm_agent():
             When comparing products, do so in a tabular format and at the end suggest the best one to buy with its product link.
             Along with important specifications, also compare price and rating in tabular format.
             Also render image in markdown format.
+            When asked about delivery estimate or order status, direct to customer support
             """,
         ),
     )
