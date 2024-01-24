@@ -8,8 +8,6 @@ from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
-from langchain.pydantic_v1 import BaseModel, Field
-from langchain.tools import tool
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
@@ -19,13 +17,12 @@ from langchain_core.prompts import (
     SystemMessagePromptTemplate,
 )
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_openai import ChatOpenAI, OpenAI
+from langchain_openai import ChatOpenAI
 
 # load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
-MESSAGES = "messages"
 history = StreamlitChatMessageHistory()
 
 
@@ -62,11 +59,14 @@ def get_llm() -> ChatOpenAI:
 @st.cache_resource
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
-        "catalog-v3-768",
+        "catalog-v2",
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
-    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
+    retriever = vectorstore.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 4},
+    )
     return retriever
 
 
@@ -88,10 +88,12 @@ def get_llm_agent():
             template="""
             You are an ecommerce assistant of noon.com.
             Your context is limited to products available on noon.com.
-            When comparing products, do so in a tabular format and at the end suggest the best one to buy with its product link.
+            When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
+            Prices are provided in the text for the products you receive, so find them from there.
+            When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
             Along with important specifications, also compare price and rating in tabular format.
-            Also render image in markdown format.
-            When asked about delivery estimate or order status, direct to customer support
+            When asked about delivery estimate or order status, direct to customer support.
+            When asked about amazon or other websites, say that you are not aware of it.
             """,
         ),
     )
@@ -125,14 +127,8 @@ def get_llm_agent_from_session() -> LLMChain:
 
 
 initialize_session_state()
-
-if len(history.messages) == 0:
-    history.clear()
-    history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
-
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
-
 if prompt := st.chat_input("Your message"):
     st.chat_message(USER).write(prompt)
     with st.spinner("Thinking..."):
