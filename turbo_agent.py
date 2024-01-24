@@ -1,8 +1,9 @@
 import streamlit as st
+from devtools import debug
 
 # from dotenv import load_dotenv
 from langchain import hub
-from langchain.agents import AgentExecutor, create_openai_tools_agent, load_tools
+from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
@@ -12,6 +13,11 @@ from langchain.tools import tool
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
+from langchain_core.prompts import (
+    ChatPromptTemplate,
+    PromptTemplate,
+    SystemMessagePromptTemplate,
+)
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAI
 
@@ -42,10 +48,6 @@ class StreamHandler(BaseCallbackHandler):
         self.container.markdown(self.text)
 
 
-# class PurchaseInput(BaseModel):
-#     query: str = Field(description="should be the name of a product to buy")
-
-
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
@@ -73,15 +75,14 @@ def get_tool_llm():
     return OpenAI(temperature=0)
 
 
-# @st.cache_resource
-# def get_prebuilt_agents():
-#     return load_tools(["llm-math"], llm=get_tool_llm())
+class PurchaseInput(BaseModel):
+    query: str = Field(description="should be the name of a product to buy")
 
 
-# @tool("buy-product", args_schema=PurchaseInput)
-# def buy_product(query: str) -> str:
-#     """Use this function to place an order and purchase products."""
-#     return f"Your {query} order has been successfully placed and will be delivered to your doorstep in 45 minutes."
+@tool("buy-product", args_schema=PurchaseInput)
+def buy_product(query: str) -> str:
+    """Use this function to place an order and purchase products. Always ask for confirmation before initiating the purchase. Don't purchase or buy anything until you are told to do so explicitly."""
+    return f"Your {query} order has been successfully placed and will be delivered to your doorstep in 45 minutes. Thank you for using noon!"
 
 
 def get_llm_agent():
@@ -93,12 +94,16 @@ def get_llm_agent():
     )
     tools = []
     tools.append(retriever_tool)
-    # tools.append(buy_product)
 
     llm = get_llm()
-    agent = create_openai_tools_agent(
-        llm, tools, hub.pull("hwchase17/openai-tools-agent")
+    agent_prompt: ChatPromptTemplate = hub.pull("hwchase17/openai-tools-agent")
+    agent_prompt.messages[0] = SystemMessagePromptTemplate(
+        prompt=PromptTemplate(
+            input_variables=[],
+            template="You are a helpful assistant for an e-commerce website. You return product catalog and information based on the following pieces of context and chat history to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. Also, never talk about Amazon or other e-commerce companies.",
+        ),
     )
+    agent = create_openai_tools_agent(llm, tools, agent_prompt)
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
     agent_with_chat_history = RunnableWithMessageHistory(
         agent_executor,
