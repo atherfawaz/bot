@@ -6,3 +6,6 @@ Chatbot_data_filtered-V2.json
 chatbot_data_filtered_sa-V3.json
 main.py
 *.json
+__pycache__
+.conda
+.vscode
