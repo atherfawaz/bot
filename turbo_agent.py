@@ -62,7 +62,7 @@ def get_llm() -> ChatOpenAI:
 @st.cache_resource(ttl="1h")
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
-        "catalog-768",
+        "catalog-v2-768",
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
