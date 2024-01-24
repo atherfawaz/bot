@@ -1,7 +1,7 @@
 import streamlit as st
 
 # from devtools import debug
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
@@ -21,7 +21,7 @@ from langchain_core.prompts import (
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAI
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -62,7 +62,7 @@ def get_llm() -> ChatOpenAI:
 @st.cache_resource(ttl="1h")
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
-        "catalog-v2-768",
+        "catalog-768",
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
@@ -73,16 +73,6 @@ def get_retriever():
 @st.cache_resource
 def get_tool_llm():
     return OpenAI(temperature=0)
-
-
-class PurchaseInput(BaseModel):
-    query: str = Field(description="should be the name of a product to buy")
-
-
-@tool("buy-product", args_schema=PurchaseInput)
-def buy_product(query: str) -> str:
-    """Use this function to place an order and purchase products. Always ask for confirmation before initiating the purchase. Don't purchase or buy anything until you are told to do so explicitly."""
-    return f"Your {query} order has been successfully placed and will be delivered to your doorstep in 45 minutes. Thank you for using noon!"
 
 
 def get_llm_agent():
@@ -100,7 +90,9 @@ def get_llm_agent():
     agent_prompt.messages[0] = SystemMessagePromptTemplate(
         prompt=PromptTemplate(
             input_variables=[],
-            template="You are a helpful assistant for an e-commerce website. You return product catalog and information based on the following pieces of context and chat history to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. Also, never talk about Amazon or other e-commerce companies.",
+            template="""
+
+            """,
         ),
     )
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
@@ -118,10 +110,10 @@ def initialize_session_state():
     st.set_page_config(page_title="Noon Chatbot", page_icon="🟡", layout="wide")
     st.title(":orange[Noon] Chatbot")
     st.header("", divider="rainbow")
-    st.sidebar.title("About")
-    st.sidebar.info(
-        "This chatbot uses GPT 3.5 Turbo with all-mpnet-base-v2 embeddings."
-    )
+    # st.sidebar.title("About")
+    # st.sidebar.info(
+    #     "This chatbot uses GPT 3.5 Turbo with all-mpnet-base-v2 embeddings."
+    # )
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
     if "llm_chain" not in st.session_state:
@@ -134,7 +126,7 @@ def get_llm_agent_from_session() -> LLMChain:
 
 initialize_session_state()
 
-if len(history.messages) == 0 or st.sidebar.button("Clear message history"):
+if len(history.messages) == 0:
     history.clear()
     history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
 
