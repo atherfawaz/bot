@@ -59,20 +59,15 @@ def get_llm() -> ChatOpenAI:
     )
 
 
-@st.cache_resource(ttl="1h")
+@st.cache_resource
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
-        "catalog-768",
+        "catalog-v3-768",
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
     retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
     return retriever
-
-
-@st.cache_resource
-def get_tool_llm():
-    return OpenAI(temperature=0)
 
 
 def get_llm_agent():
@@ -91,7 +86,11 @@ def get_llm_agent():
         prompt=PromptTemplate(
             input_variables=[],
             template="""
-
+            You are an ecommerce assistant of noon.com.
+            Your context is limited to products available on noon.com.
+            When comparing products, do so in a tabular format and at the end suggest the best one to buy with its product link.
+            Along with important specifications, also compare price and rating in tabular format.
+            Also render image in markdown format.
             """,
         ),
     )
@@ -110,10 +109,10 @@ def initialize_session_state():
     st.set_page_config(page_title="Noon Chatbot", page_icon="🟡", layout="wide")
     st.title(":orange[Noon] Chatbot")
     st.header("", divider="rainbow")
-    # st.sidebar.title("About")
-    # st.sidebar.info(
-    #     "This chatbot uses GPT 3.5 Turbo with all-mpnet-base-v2 embeddings."
-    # )
+    st.sidebar.title("About")
+    st.sidebar.info(
+        "This chatbot uses GPT 3.5 Turbo with all-mpnet-base-v2 embeddings."
+    )
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
     if "llm_chain" not in st.session_state:
