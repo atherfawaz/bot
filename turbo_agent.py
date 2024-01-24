@@ -1,7 +1,7 @@
 import streamlit as st
 
 # from devtools import debug
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
@@ -21,7 +21,7 @@ from langchain_core.prompts import (
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAI
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -59,30 +59,15 @@ def get_llm() -> ChatOpenAI:
     )
 
 
-@st.cache_resource(ttl="1h")
+@st.cache_resource
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
-        "catalog-v2-768",
+        "catalog-v3-768",
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
     retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
     return retriever
-
-
-@st.cache_resource
-def get_tool_llm():
-    return OpenAI(temperature=0)
-
-
-class PurchaseInput(BaseModel):
-    query: str = Field(description="should be the name of a product to buy")
-
-
-@tool("buy-product", args_schema=PurchaseInput)
-def buy_product(query: str) -> str:
-    """Use this function to place an order and purchase products. Always ask for confirmation before initiating the purchase. Don't purchase or buy anything until you are told to do so explicitly."""
-    return f"Your {query} order has been successfully placed and will be delivered to your doorstep in 45 minutes. Thank you for using noon!"
 
 
 def get_llm_agent():
@@ -100,7 +85,13 @@ def get_llm_agent():
     agent_prompt.messages[0] = SystemMessagePromptTemplate(
         prompt=PromptTemplate(
             input_variables=[],
-            template="You are a helpful assistant for an e-commerce website. You return product catalog and information based on the following pieces of context and chat history to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer. Also, never talk about Amazon or other e-commerce companies.",
+            template="""
+            You are an ecommerce assistant of noon.com.
+            Your context is limited to products available on noon.com.
+            When comparing products, do so in a tabular format and at the end suggest the best one to buy with its product link.
+            Along with important specifications, also compare price and rating in tabular format.
+            Also render image in markdown format.
+            """,
         ),
     )
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
@@ -134,7 +125,7 @@ def get_llm_agent_from_session() -> LLMChain:
 
 initialize_session_state()
 
-if len(history.messages) == 0 or st.sidebar.button("Clear message history"):
+if len(history.messages) == 0:
     history.clear()
     history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
 
