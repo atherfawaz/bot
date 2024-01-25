@@ -17,7 +17,7 @@ from langchain_core.prompts import (
     SystemMessagePromptTemplate,
 )
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 # load_dotenv()
 
@@ -58,9 +58,10 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
+    embeddings = OpenAIEmbeddings()
     vectorstore = Pinecone.from_existing_index(
-        "catalog-v2",
-        HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
+        "catalog-1536",
+        embeddings,
         "text",
     )
     retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
