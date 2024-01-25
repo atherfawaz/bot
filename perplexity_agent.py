@@ -1,141 +1,147 @@
+from dataclasses import dataclass
+from enum import Enum
+
 import streamlit as st
-from devtools import debug
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 # from dotenv import load_dotenv
-from langchain import hub
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.chains import LLMChain
-from langchain.memory import StreamlitChatMessageHistory
-from langchain.tools.retriever import create_retriever_tool
+from langchain.chains import (
+    ConversationalRetrievalChain,
+    LLMChain,
+)
+from langchain.memory import (
+    ConversationBufferWindowMemory,
+    StreamlitChatMessageHistory,
+)
+from langchain.prompts import PromptTemplate
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    PromptTemplate,
-    SystemMessagePromptTemplate,
-)
-from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_openai import ChatOpenAI
 
-from ancillaries.perplexity import PerplexityChatService
+from ancillaries import perplexity
 
 # load_dotenv()
 
-USER = "user"
-ASSISTANT = "ai"
 history = StreamlitChatMessageHistory()
 
-
-class StreamHandler(BaseCallbackHandler):
-    def __init__(
-        self, container: st.delta_generator.DeltaGenerator, initial_text: str = ""
-    ):
-        self.container = container
-        self.text = initial_text
-        self.run_id_ignore_token = None
-
-    def on_llm_start(self, serialized: dict, prompts: list, **kwargs):
-        if prompts[0].startswith("Human"):
-            self.run_id_ignore_token = kwargs.get("run_id")
-
-    def on_llm_new_token(self, token: str, **kwargs) -> None:
-        if self.run_id_ignore_token == kwargs.get("run_id", False):
-            return
-        self.text += token
-        self.container.markdown(self.text)
+USER = "user"
+ASSISTANT = "ai"
+MESSAGES = "messages"
 
 
-@st.cache_resource
-def get_llm() -> ChatOpenAI:
-    return PerplexityChatService()
+@dataclass
+class Message:
+    actor: str
+    payload: str
 
 
-@st.cache_resource
+class ChainMethod(Enum):
+    STUFF = "stuff"
+    MAPREDUCE = "map_reduce"
+    REFINE = "refine"
+
+
+def get_llm_for_perplexity() -> perplexity.PerplexityChatService:
+    return perplexity.PerplexityChatService()
+
+
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
         "catalog-v2",
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 4},
-    )
-    return retriever
+    return vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
 
 
-def get_llm_agent():
-    retriever = get_retriever()
-    retriever_tool = create_retriever_tool(
-        retriever,
-        "search_catalog",
-        "Searches and returns information about products sold on noon.com. It will return product details. Query it when you need information about products.",
-    )
-    tools = []
-    tools.append(retriever_tool)
+def get_llm_chain_w_customsearch():
+    # condense_question_template = """
+    #     Return text in the original language of the follow up question.
+    #     Never rephrase the follow up question given the chat history unless the follow up question needs context.
 
-    llm = get_llm()
-    agent_prompt: ChatPromptTemplate = hub.pull("hwchase17/openai-tools-agent")
-    agent_prompt.messages[0] = SystemMessagePromptTemplate(
-        prompt=PromptTemplate(
-            input_variables=[],
-            template="""
-            You are an ecommerce assistant of noon.com.
-            Your context is limited to products available on noon.com.
-            When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
-            Prices are provided in the text for the products you receive, so find them from there.
-            When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
-            Along with important specifications, also compare price and rating in tabular format.
-            When asked about delivery estimate or order status, direct to customer support.
-            When asked about amazon or other websites, say that you are not aware of it.
-            """,
-        ),
+    #     Chat History: {chat_history}
+    #     Follow Up question: {question}
+    #     Standalone question:
+    # """
+    # condense_question_prompt = PromptTemplate.from_template(
+    #     template=condense_question_template
+    # )
+
+    combine_prompt = PromptTemplate(
+        template="""
+        You are an ecommerce assistant of noon.com.
+        Your context is limited to products available on noon.com.
+        When giving products, always provide links and images.
+        Render images in markdown format.
+        Don't look up products unless you are told to do so.
+        For general questions, provide general responses.
+
+        Context: {context}
+        Chat history: {chat_history}
+        Question: {question} 
+        Helpful Answer:""",
+        input_variables=["context", "question", "chat_history"],
     )
-    agent = create_openai_tools_agent(llm, tools, agent_prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-    agent_with_chat_history = RunnableWithMessageHistory(
-        agent_executor,
-        lambda session_id: history,
-        input_messages_key="input",
-        history_messages_key="chat_history",
+
+    memory = ConversationBufferWindowMemory(
+        memory_key="chat_history",
+        input_key="question",
+        output_key="answer",
+        human_prefix=USER,
+        ai_prefix=ASSISTANT,
+        return_messages=True,
+        chat_memory=history,
     )
-    return agent_with_chat_history
+
+    conversation = ConversationalRetrievalChain.from_llm(
+        llm=get_llm_for_perplexity(),
+        retriever=get_retriever(),
+        verbose=True,
+        memory=memory,
+        combine_docs_chain_kwargs={"prompt": combine_prompt},
+        chain_type=ChainMethod.STUFF.value,
+        rephrase_question=False,
+        # condense_question_prompt=condense_question_prompt,
+        condense_question_llm=get_llm_for_perplexity(),
+        return_source_documents=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+    )
+
+    return conversation
 
 
 def initialize_session_state():
-    st.set_page_config(page_title="Noon Chatbot", page_icon="🟡", layout="wide")
-    st.title(":orange[Noon] Chatbot")
-    st.header("", divider="rainbow")
-    st.sidebar.title("About")
-    st.sidebar.info(
-        "This chatbot uses GPT 3.5 Turbo with all-mpnet-base-v2 embeddings."
-    )
+    st.title("Noon Chatbot")
     if len(history.messages) == 0:
-        history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
+        history.add_ai_message("Hi there! How can I help you?")
+
     if "llm_chain" not in st.session_state:
-        st.session_state["llm_chain"] = get_llm_agent()
+        st.session_state["llm_chain"] = get_llm_chain_w_customsearch()
 
 
-def get_llm_agent_from_session() -> LLMChain:
+def get_llm_chain_from_session() -> LLMChain:
     return st.session_state["llm_chain"]
 
 
+def get_summarization_from_sessoin() -> str:
+    return st.session_state["chat_history_summarization"]
+
+
 initialize_session_state()
+
+msg: Message
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
-if prompt := st.chat_input("Your message"):
+
+prompt: str = st.chat_input("Enter a prompt here")
+
+if prompt:
+    # history.add_user_message(prompt)
     st.chat_message(USER).write(prompt)
-    with st.spinner("Thinking..."):
-        stream_handler = StreamHandler(st.empty())
-        agent = get_llm_agent_from_session()
-        debug(agent)
-        result = agent.invoke(
-            {"input": prompt},
-            config={
-                "callbacks": [stream_handler],
-                "configurable": {"session_id": "<foo>"},
-            },
-        )
-        response = result["output"]
+    with st.spinner("Please wait.."):
+        print(f"YOUR PROMPT={prompt}")
+        llm_chain = get_llm_chain_from_session()
+        response: str = llm_chain(
+            {"question": prompt, "chat_history": history.messages}
+        )["answer"]
+        # history.add_ai_message(response)
         st.chat_message(ASSISTANT).write(response)

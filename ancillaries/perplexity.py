@@ -3,7 +3,6 @@ import os
 from typing import Any, Dict, List
 
 import requests
-from dotenv import load_dotenv
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -13,8 +12,6 @@ from langchain_core.messages import (
 )
 
 from .wasm import WasmChatService
-
-load_dotenv()
 
 
 def _convert_message_to_dict(message: BaseMessage) -> dict:
@@ -34,8 +31,10 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
 
 
 class PerplexityChatService(WasmChatService):
-    model: str = "mistral-7b-instruct"
-    # model: str = "pplx-70b-chat"
+    # model: str = "mistral-7b-instruct"
+    model: str = "pplx-70b-chat"
+    # model: str = "llama-2-70b-chat"
+    # model: str = "pplx-70b-online"
     # model: str = "mixtral-8x7b-instruct"
     service_url: str = "https://api.perplexity.ai/chat/completions"
     api_key: str | None = None
@@ -46,7 +45,6 @@ class PerplexityChatService(WasmChatService):
             "messages": [_convert_message_to_dict(m) for m in messages],
         }
 
-        print("perplexity payload", payload)
         res = requests.post(
             url=self.service_url,
             timeout=self.request_timeout,

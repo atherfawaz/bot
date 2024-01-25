@@ -46,24 +46,16 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
 
 
 class WasmChatService(BaseChatModel):
-    """Chat with LLMs via `llama-api-server`
-
-    For the information about `llama-api-server`, visit https://github.com/second-state/llama-utils
-    """
-
     request_timeout: int = 60
-    """request timeout for chat http requests"""
     service_url: Optional[str] = None
-    """URL of WasmChat service"""
     model: str = "NA"
-    """model name, default is `NA`."""
 
     class Config:
         """Configuration for this pydantic object."""
 
         allow_population_by_field_name = True
 
-    @root_validator(pre=True)
+    @root_validator(pre=True, allow_reuse=True)
     def build_extra(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         """Build extra kwargs from additional params that were passed in."""
         all_required_field_names = get_pydantic_field_names(cls)
