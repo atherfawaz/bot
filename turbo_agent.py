@@ -1,12 +1,13 @@
 import streamlit as st
-
-# from dotenv import load_dotenv
+from devtools import debug
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
+from langchain.retrievers.multi_query import MultiQueryRetriever
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
@@ -18,7 +19,7 @@ from langchain_core.prompts import (
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -47,7 +48,7 @@ class StreamHandler(BaseCallbackHandler):
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        temperature=0.7,
+        temperature=0,
         model="gpt-3.5-turbo-1106",
         streaming=True,
         verbose=True,
@@ -62,9 +63,10 @@ def get_retriever():
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 4},
+    llm = ChatOpenAI(temperature=0)
+    retriever = MultiQueryRetriever.from_llm(
+        retriever=vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4}),
+        llm=llm,
     )
     return retriever
 
@@ -74,7 +76,8 @@ def get_llm_agent():
     retriever_tool = create_retriever_tool(
         retriever,
         "search_catalog",
-        "Searches and returns information about products sold on noon.com. It will return product details. Query it when you need information about products.",
+        """Searches and returns information about products sold on noon.com. Query it when you need information about electronics and home appliances.
+        """,
     )
     tools = []
     tools.append(retriever_tool)
@@ -87,17 +90,22 @@ def get_llm_agent():
             template="""
             You are an ecommerce assistant of noon.com.
             Your context is limited to products available on noon.com.
-            When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
-            Prices are provided in the text for the products you receive, so find them from there.
+            Only answer questions related to products from electronics and home appliances.
+            Prices are provided in the text for the products you receive, so find and return them from there.
+            Always return product URLs and link customers to the product page.
+            Always return image URLs and render images in markdown.
+            Present multiple products in a tabular format.
             When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
-            Along with important specifications, also compare price and rating in tabular format.
             When asked about delivery estimate or order status, direct to customer support.
             When asked about amazon or other websites, say that you are not aware of it.
             """,
         ),
     )
+    debug(agent_prompt)
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = AgentExecutor(
+        agent=agent, tools=tools, verbose=True, max_iterations=2
+    )
     agent_with_chat_history = RunnableWithMessageHistory(
         agent_executor,
         lambda session_id: history,

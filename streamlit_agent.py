@@ -1,7 +1,7 @@
 import streamlit as st
 
 # from devtools import debug
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
@@ -19,7 +19,7 @@ from langchain_core.prompts import (
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -63,7 +63,9 @@ def get_retriever():
         HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
         "text",
     )
-    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
+    retriever = vectorstore.as_retriever(
+        search_type="mmr", search_kwargs={"k": 4, "score_threshold": 0.9}
+    )
     return retriever
 
 
@@ -71,8 +73,9 @@ def get_llm_agent():
     retriever = get_retriever()
     retriever_tool = create_retriever_tool(
         retriever,
-        "search_catalog",
-        "Searches and returns information about products sold on noon.com. It will return product details. Query it when you need information about products.",
+        "search_electronics_and_home_appliances",
+        """Searches and returns information about products sold on noon.com. Query it when you need information about electronics and home appliances.
+        """,
     )
     tools = []
     tools.append(retriever_tool)
@@ -85,9 +88,10 @@ def get_llm_agent():
             template="""
             You are an ecommerce assistant of noon.com.
             Your context is limited to products available on noon.com.
-            Prices are provided in the text for the products you receive, so find them from there.
+            Only answer questions related to products from electronics and home appliances.
+            Prices are provided in the text for the products you receive, so find and return them from there.
             Always return product URLs and link customers to the product page.
-            Always return image URLs and render images as markdown.
+            Always return image URLs and render images in markdown.
             Present multiple products in a tabular format.
             When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
             When asked about delivery estimate or order status, direct to customer support.
@@ -96,7 +100,9 @@ def get_llm_agent():
         ),
     )
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = AgentExecutor(
+        agent=agent, tools=tools, verbose=True, max_iterations=1
+    )
     agent_with_chat_history = RunnableWithMessageHistory(
         agent_executor,
         lambda session_id: history,
