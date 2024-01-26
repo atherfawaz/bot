@@ -47,16 +47,23 @@ class StreamHandler(BaseCallbackHandler):
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
         temperature=0,
-        model="gpt-3.5-turbo-1106",
+        model='gpt-4',
         streaming=True,
         verbose=True,
         callbacks=[StreamingStdOutCallbackHandler()],
     )
 
 
+from langchain_openai import OpenAIEmbeddings
+
 @st.cache_resource
 def get_retriever():
-    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
+    vectorstore = Pinecone.from_existing_index(
+        "catalog-v2",
+        # HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
+        OpenAIEmbeddings(),
+        "text",
+    )
     retriever = vectorstore.as_retriever(
         search_type="mmr",
         search_kwargs={"k": 5},
@@ -71,6 +78,10 @@ def get_retriever():
 # Along with important specifications, also compare price and rating in tabular format.
 # '''
 
+
+            # When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
+# Along with important specifications, also compare price and rating in tabular format.
+# '''
 
 def get_llm_agent():
     retriever = get_retriever()
