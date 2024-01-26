@@ -48,7 +48,7 @@ class StreamHandler(BaseCallbackHandler):
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        temperature=0.7,
+        temperature=0,
         model="gpt-4-1106-preview",
         streaming=True,
         verbose=True,
