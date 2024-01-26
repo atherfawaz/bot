@@ -91,6 +91,7 @@ def get_llm_agent():
             You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
             Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
             When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
+            When asked about amazon or other websites, say that you are not aware of it.
             """,
         ),
     )
@@ -110,9 +111,7 @@ def initialize_session_state():
     st.title(":orange[Noon] Chatbot")
     st.header("", divider="rainbow")
     st.sidebar.title("About")
-    st.sidebar.info(
-        "This chatbot uses GPT 3.5 Turbo with all-mpnet-base-v2 embeddings."
-    )
+    st.sidebar.info("This chatbot uses GPT 3.5 Turbo with OpenAI embeddings.")
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
     if "llm_chain" not in st.session_state:

@@ -1,6 +1,5 @@
 import streamlit as st
 
-# from devtools import debug
 # from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -9,8 +8,6 @@ from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
 from langchain.tools.retriever import create_retriever_tool
-
-# from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -59,22 +56,28 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
-    embeddings = OpenAIEmbeddings()
-    vectorstore = Pinecone.from_existing_index(
-        "catalog-1536",
-        embeddings,
-        "text",
+    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
+    retriever = vectorstore.as_retriever(
+        search_type="mmr",
+        search_kwargs={"k": 5},
     )
-    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 3})
     return retriever
+
+
+# '''
+#             When asked about delivery estimate or order status, direct to customer support.
+#             When asked about amazon or other websites, say that you are not aware of it.
+# When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
+# Along with important specifications, also compare price and rating in tabular format.
+# '''
 
 
 def get_llm_agent():
     retriever = get_retriever()
     retriever_tool = create_retriever_tool(
         retriever,
-        "search_electronics_and_home_appliances",
-        "Searches and returns information about products sold on noon.com. Query it when you need information about electronics and home appliances.",
+        "search_catalog",
+        "Searches and returns information about products sold on noon.com. It will return product details. Query it when you need information about products.",
     )
     tools = []
     tools.append(retriever_tool)
@@ -85,14 +88,9 @@ def get_llm_agent():
         prompt=PromptTemplate(
             input_variables=[],
             template="""
-            You are an ecommerce assistant of noon.com.
-            Your context is limited to the data passed to you. 
-            Only answer questions related to products from electronics and home appliances.
-            Prices are provided in the text for the products you receive, so find and return them from there.
-            If you find product URLs use them to direct customer to that page.
-            If you find image URLs and render images in markdown.
-            When asked to compare products, compare them in a tabular format.
-            When asked about delivery estimate or order status, direct to customer support.
+            You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
+            Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
+            When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
             When asked about amazon or other websites, say that you are not aware of it.
             """,
         ),
@@ -113,7 +111,7 @@ def initialize_session_state():
     st.title(":orange[Noon] Chatbot")
     st.header("", divider="rainbow")
     st.sidebar.title("About")
-    st.sidebar.info("This chatbot uses GPT-4 with all-mpnet-base-v2 embeddings.")
+    st.sidebar.info("This chatbot uses GPT-4 with OpenAI embeddings.")
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
     if "llm_chain" not in st.session_state:
@@ -125,11 +123,6 @@ def get_llm_agent_from_session() -> LLMChain:
 
 
 initialize_session_state()
-
-if len(history.messages) == 0:
-    history.clear()
-    history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
-
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
 
