@@ -8,7 +8,6 @@ from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
 from langchain.tools.retriever import create_retriever_tool
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -16,7 +15,7 @@ from langchain_core.prompts import (
     SystemMessagePromptTemplate,
 )
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 # load_dotenv()
 
@@ -47,7 +46,7 @@ class StreamHandler(BaseCallbackHandler):
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        temperature=0.7,
+        temperature=0,
         model="gpt-3.5-turbo-1106",
         streaming=True,
         verbose=True,
@@ -57,16 +56,20 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
-    vectorstore = Pinecone.from_existing_index(
-        "catalog-v2",
-        HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2"),
-        "text",
-    )
+    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 4},
+        search_kwargs={"k": 5},
     )
     return retriever
+
+
+# '''
+#             When asked about delivery estimate or order status, direct to customer support.
+#             When asked about amazon or other websites, say that you are not aware of it.
+# When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
+# Along with important specifications, also compare price and rating in tabular format.
+# '''
 
 
 def get_llm_agent():
@@ -85,14 +88,9 @@ def get_llm_agent():
         prompt=PromptTemplate(
             input_variables=[],
             template="""
-            You are an ecommerce assistant of noon.com.
-            Your context is limited to products available on noon.com.
-            When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
-            Prices are provided in the text for the products you receive, so find them from there.
+            You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
+            Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
             When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
-            Along with important specifications, also compare price and rating in tabular format.
-            When asked about delivery estimate or order status, direct to customer support.
-            When asked about amazon or other websites, say that you are not aware of it.
             """,
         ),
     )
