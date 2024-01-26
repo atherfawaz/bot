@@ -9,7 +9,8 @@ from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
 from langchain.tools.retriever import create_retriever_tool
-from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -64,7 +65,7 @@ def get_retriever():
         embeddings,
         "text",
     )
-    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 4})
+    retriever = vectorstore.as_retriever(search_type="mmr", search_kwargs={"k": 3})
     return retriever
 
 
@@ -88,9 +89,9 @@ def get_llm_agent():
             Your context is limited to products available on noon.com.
             Only answer questions related to products from electronics and home appliances.
             Prices are provided in the text for the products you receive, so find and return them from there.
-            Always return product URLs and link customers to the product page.
-            Always return image URLs and render images in markdown.
-            Present multiple products in a tabular format.
+            If you find product URLs use them to direct customer to that page.
+            If you find image URLs and render images in markdown.
+            When asked to compare products, compare them in a tabular format.
             When asked about delivery estimate or order status, direct to customer support.
             When asked about amazon or other websites, say that you are not aware of it.
             """,
