@@ -86,7 +86,7 @@ def get_llm_agent():
             input_variables=[],
             template="""
             You are an ecommerce assistant of noon.com.
-            Your context is limited to products available on noon.com.
+            Your context is limited to the data passed to you. 
             Only answer questions related to products from electronics and home appliances.
             Prices are provided in the text for the products you receive, so find and return them from there.
             If you find product URLs use them to direct customer to that page.
