@@ -170,9 +170,7 @@ def initialize_session_state():
     st.title(":orange[Noon] Chatbot")
     st.header("", divider="rainbow")
     st.sidebar.title("About")
-    st.sidebar.info(
-        "This chatbot uses GPT 3.5 Turbo with OpenAI embeddings and a customer retriever."
-    )
+    st.sidebar.info("This chatbot uses GPT 3.5 Turbo with OpenAI embeddings.")
     if len(history.messages) == 0:
         history.add_ai_message("Hi there! Welcome to noon. How can I help you?")
     if "llm_chain" not in st.session_state:
