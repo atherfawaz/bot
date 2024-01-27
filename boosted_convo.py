@@ -1,7 +1,8 @@
 from enum import Enum
 
 import streamlit as st
-from dotenv import load_dotenv
+
+# from dotenv import load_dotenv
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import (
@@ -19,7 +20,7 @@ from langchain_community.vectorstores.pinecone import Pinecone
 from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
 
 history = StreamlitChatMessageHistory()
-load_dotenv()
+# load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
