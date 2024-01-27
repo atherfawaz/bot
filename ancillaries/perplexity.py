@@ -314,8 +314,6 @@ class PerplexityChat(BaseChatModel):
 
         default_chunk_class = AIMessageChunk
         for chunk in self.completion_with_retry(messages=message_dicts, **params):
-            debug(chunk)
-            breakpoint()
             delta = chunk["choices"][0]["delta"]
             chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
             default_chunk_class = chunk.__class__

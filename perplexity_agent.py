@@ -2,7 +2,9 @@ from dataclasses import dataclass
 from enum import Enum
 
 import streamlit as st
-from dotenv import load_dotenv
+
+# from dotenv import load_dotenv
+from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import (
     ConversationalRetrievalChain,
@@ -10,17 +12,15 @@ from langchain.chains import (
 )
 from langchain.memory import (
     ConversationBufferMemory,
-    # ConversationBufferWindowMemory,
     StreamlitChatMessageHistory,
 )
 from langchain.prompts import PromptTemplate
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores.pinecone import Pinecone
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 
 from ancillaries.perplexity import PerplexityChat
 
-load_dotenv()
+# load_dotenv()
 
 history = StreamlitChatMessageHistory()
 
@@ -41,14 +41,27 @@ class ChainMethod(Enum):
     REFINE = "refine"
 
 
+class StreamHandler(BaseCallbackHandler):
+    def __init__(
+        self, container: st.delta_generator.DeltaGenerator, initial_text: str = ""
+    ):
+        self.container = container
+        self.text = initial_text
+        self.run_id_ignore_token = None
+
+    def on_llm_start(self, serialized: dict, prompts: list, **kwargs):
+        if prompts[0].startswith("Human"):
+            self.run_id_ignore_token = kwargs.get("run_id")
+
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        if self.run_id_ignore_token == kwargs.get("run_id", False):
+            return
+        self.text += token
+        self.container.markdown(self.text)
+
+
 def get_llm_for_perplexity():
-    return PerplexityChat(
-        model_name="pplx-70b-online",
-        temperature=0.7,
-        verbose=True,
-        # streaming=True,
-        # callbacks=[StreamingStdOutCallbackHandler()],
-    )
+    return PerplexityChat(model_name="pplx-70b-online", temperature=0.0, verbose=True)
 
 
 @st.cache_resource
@@ -64,28 +77,11 @@ def get_retriever():
 
 
 def get_llm_chain_w_customsearch():
-    condense_question_template = """
-    Return text in the original language of the follow up question.
-    Never rephrase the follow up question given the chat history unless the follow up question needs context.
-
-    Chat History: {chat_history}
-    Follow Up question: {question}
-    Standalone question:
-    """
-    condense_question_prompt = PromptTemplate.from_template(
-        template=condense_question_template
-    )
-
     combine_prompt = PromptTemplate(
         template="""
-        You are an ecommerce assistant of noon.com.
-        Your context is limited to products available on noon.com.
-        Prices are provided in the text for the products you receive, so find them from there.
-        Always return product URLs and link customers to the product page.
-        Always return image URLs and render images as markdown.
-        Present multiple products in a tabular format.
+        You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
+        Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
         When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
-        When asked about delivery estimate or order status, direct to customer support.
         When asked about amazon or other websites, say that you are not aware of it.
         
         Context: {context}
@@ -113,8 +109,8 @@ def get_llm_chain_w_customsearch():
         combine_docs_chain_kwargs={"prompt": combine_prompt},
         chain_type=ChainMethod.STUFF.value,
         rephrase_question=False,
-        condense_question_prompt=condense_question_prompt,
-        condense_question_llm=get_llm_for_perplexity(),
+        # condense_question_prompt=condense_question_prompt,
+        # condense_question_llm=get_llm_for_perplexity(),
         return_source_documents=True,
         callbacks=[StreamingStdOutCallbackHandler()],
     )
@@ -153,13 +149,10 @@ for msg in history.messages:
 prompt: str = st.chat_input("Enter a prompt here")
 
 if prompt:
-    # history.add_user_message(prompt)
     st.chat_message(USER).write(prompt)
     with st.spinner("Please wait.."):
         print(f"YOUR PROMPT={prompt}")
+        stream_handler = StreamHandler(st.empty())
         llm_chain = get_llm_chain_from_session()
-        response: str = llm_chain(
-            {"question": prompt, "chat_history": history.messages}
-        )["answer"]
-        # history.add_ai_message(response)
-        st.chat_message(ASSISTANT).write(response)
+        result = llm_chain.invoke({"input": prompt, "question": prompt})
+        st.chat_message(ASSISTANT).write(result["answer"])
