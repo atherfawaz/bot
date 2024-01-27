@@ -7,3 +7,4 @@ langchainhub
 sentence-transformers
 pinecone-client
 numexpr
+lark
