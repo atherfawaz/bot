@@ -405,7 +405,7 @@ class PerplexityChat(BaseChatModel):
         pplx_creds: Dict[str, Any] = {
             "api_key": self.pplx_api_key,
             "api_base": "https://api.perplexity.ai",
-            "model": "mistral-7b-instruct",
+            "model": self.model_name,
         }
         return {**pplx_creds, **self._default_params}
 
