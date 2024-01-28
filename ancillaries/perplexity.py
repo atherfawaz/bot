@@ -188,7 +188,7 @@ class PerplexityChat(BaseChatModel):
 
         allow_population_by_field_name = True
 
-    @root_validator(pre=True)
+    @root_validator(pre=True, allow_reuse=True)
     def build_extra(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         """Build extra kwargs from additional params that were passed in."""
         all_required_field_names = get_pydantic_field_names(cls)
@@ -214,7 +214,7 @@ class PerplexityChat(BaseChatModel):
         values["model_kwargs"] = extra
         return values
 
-    @root_validator()
+    @root_validator(allow_reuse=True)
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate that api key and python package exists in environment."""
         values["pplx_api_key"] = get_from_dict_or_env(
@@ -313,13 +313,22 @@ class PerplexityChat(BaseChatModel):
         params = {**params, **kwargs, "stream": True}
 
         default_chunk_class = AIMessageChunk
+        arr = []
         for chunk in self.completion_with_retry(messages=message_dicts, **params):
-            delta = chunk["choices"][0]["delta"]
-            chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
-            default_chunk_class = chunk.__class__
-            yield ChatGenerationChunk(message=chunk)
-            if run_manager:
-                run_manager.on_llm_new_token(chunk.content)
+            debug(chunk)
+            arr.append(chunk)
+        debug(arr)
+        arr = [a.decode() for a in arr]
+        arr = "".join(arr)
+        chunk = json.loads(arr)
+        debug(arr)
+        to_process = chunk.decode()
+        delta = chunk["choices"][0]["delta"]
+        chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
+        default_chunk_class = chunk.__class__
+        yield ChatGenerationChunk(message=chunk)
+        if run_manager:
+            run_manager.on_llm_new_token(chunk.content)
 
     def _generate(
         self,
@@ -328,11 +337,11 @@ class PerplexityChat(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        if self.streaming:
-            stream_iter = self._stream(
-                messages=messages, stop=stop, run_manager=run_manager, **kwargs
-            )
-            return generate_from_stream(stream_iter)
+        # if self.streaming:
+        #     stream_iter = self._stream(
+        #         messages=messages, stop=stop, run_manager=run_manager, **kwargs
+        #     )
+        #     return generate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}
