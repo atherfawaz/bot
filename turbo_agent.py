@@ -1,5 +1,8 @@
+import re
+
 import streamlit as st
 
+# from devtools import debug
 # from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -87,7 +90,6 @@ def get_llm_agent():
             You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
             Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
             When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
-            For each product, return the SKU like so: <sku>
             When asked about amazon or other websites, say that you are not aware of it.
             """,
         ),
@@ -141,3 +143,7 @@ if prompt := st.chat_input("Your message"):
             },
         )
         response = result["output"]
+
+        if response:
+            # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
+            sku_list = re.findall(r"/xyz/(\w+)/p", response)

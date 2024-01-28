@@ -1,3 +1,5 @@
+import re
+
 import streamlit as st
 
 # from dotenv import load_dotenv
@@ -62,14 +64,6 @@ def get_retriever():
         search_kwargs={"k": 5},
     )
     return retriever
-
-
-# '''
-#             When asked about delivery estimate or order status, direct to customer support.
-#             When asked about amazon or other websites, say that you are not aware of it.
-# When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
-# Along with important specifications, also compare price and rating in tabular format.
-# '''
 
 
 def get_llm_agent():
@@ -145,3 +139,6 @@ if prompt:
             },
         )
         response = result["output"]
+        if response:
+            # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
+            sku_list = re.findall(r"/xyz/(\w+)/p", response)
