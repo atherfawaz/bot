@@ -1,23 +1,28 @@
-import streamlit as st
+from typing import List
 
-# from dotenv import load_dotenv
+import streamlit as st
+from devtools import debug
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
 from langchain.memory import StreamlitChatMessageHistory
+from langchain.prompts import PromptTemplate
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.vectorstores.pinecone import Pinecone
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import (
     ChatPromptTemplate,
     PromptTemplate,
     SystemMessagePromptTemplate,
 )
+from langchain_core.pydantic_v1 import BaseModel, Field
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -41,6 +46,14 @@ class StreamHandler(BaseCallbackHandler):
             return
         self.text += token
         self.container.markdown(self.text)
+
+
+class LLMResponse(BaseModel):
+    response: str = Field(description="response returned to the model")
+    skus: List[str] = Field(description="list of skus returned in the response")
+
+
+parser = JsonOutputParser(pydantic_object=LLMResponse)
 
 
 @st.cache_resource
@@ -80,15 +93,19 @@ def get_llm_agent():
 
     llm = get_llm()
     agent_prompt: ChatPromptTemplate = hub.pull("hwchase17/openai-tools-agent")
+    debug(agent_prompt)
     agent_prompt.messages[0] = SystemMessagePromptTemplate(
         prompt=PromptTemplate(
             input_variables=[],
+            partial_variables={"format_instructions": parser.get_format_instructions()},
             template="""
             You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
             Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
             When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
             For each product, return the SKU like so: <sku>
             When asked about amazon or other websites, say that you are not aware of it.
+            
+            {format_instructions}
             """,
         ),
     )
