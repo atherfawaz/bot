@@ -338,9 +338,13 @@ class PerplexityChat(BaseChatModel):
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}
-        response = self.completion_with_retry(messages=message_dicts, **params)
-        completion = response.completion
-        message = AIMessage(content=completion)
+        buffer = bytes()
+        for chunk in self.completion_with_retry(messages=message_dicts, **params):
+            buffer += chunk
+        j = buffer.decode()
+        j = json.loads(j)
+        content = j["choices"][0]["message"]["content"]
+        message = AIMessage(content=content)
         return ChatResult(generations=[ChatGeneration(message=message)])
 
     def _create_message_dicts(
