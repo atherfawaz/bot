@@ -1,3 +1,4 @@
+import re
 from enum import Enum
 
 import streamlit as st
@@ -111,15 +112,17 @@ def get_retriever():
 def get_llm_chain_w_customsearch():
     combine_prompt = PromptTemplate(
         template="""
-        You are a helpful and friendly ecommerce assistant, your context is limited to the data passed to you and nothing else.
-        You deal with electronics and home appliances categories only, for other categories and their products, direct to noon: https://www.noon.com/uae-en/.
-        Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
-        When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
+        You are an ecommerce assistant of noon.com.
+        Your context is limited to the data passed to you.
+        Only answer questions related to products from electronics and home appliances.
+        Prices and product links are provided in the text for the products you receive, so find and return them from there.
+        If you find product URLs use them to direct customer to that page.
+        Do not return image details at all.
+        Limit your results to only 4 products at maximum.
+        When listing multiple products, write one line for each product describing its price and specifications.
+        When asked about specific details for a product, just concisely repond with that information only.
         When asked about amazon or other websites, say that you are not aware of it.
-        Render all links and images in markdown format.
-        Also give the specifications, SKU, rating, and warranty with each product.
-        Present comparisons and multiple products in a tabular format.
-        For any other questions, problems, or complaints, direct to customer support here: https://help.noon.com/hc/en-us.
+        For problems or complaints, direct to customer support.
 
         Context: {context}
         Chat history: {chat_history}
@@ -188,15 +191,21 @@ for msg in history.messages:
 
 if prompt := st.chat_input("Ask a question"):
     prompt = prompt.strip()
-    st.chat_message(USER).write(prompt)
-    with st.spinner("Please wait.."):
-        stream_handler = StreamHandler(st.empty())
-        llm_chain = get_llm_chain_from_session()
-        response = llm_chain.invoke(
-            {"question": prompt, "chat_history": history.messages, "input": prompt},
-            config={
-                "callbacks": [stream_handler],
-                "configurable": {"session_id": "<foo>"},
-            },
-        )
-        st.chat_message(ASSISTANT).write(response["answer"])
+    if prompt:
+        st.chat_message(USER).write(prompt)
+        with st.spinner("Please wait.."):
+            stream_handler = StreamHandler(st.empty())
+            llm_chain = get_llm_chain_from_session()
+            response = llm_chain.invoke(
+                {"question": prompt, "chat_history": history.messages, "input": prompt},
+                config={
+                    "callbacks": [stream_handler],
+                    "configurable": {"session_id": "<foo>"},
+                },
+            )
+            st.chat_message(ASSISTANT).write(response["answer"])
+            if response:
+                # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
+                sku_list = re.findall(
+                    r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
+                )
