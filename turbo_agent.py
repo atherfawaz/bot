@@ -87,10 +87,16 @@ def get_llm_agent():
         prompt=PromptTemplate(
             input_variables=[],
             template="""
-            You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
-            Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
-            When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
+            You are an ecommerce assistant of noon.com.
+            Your context is limited to the data passed to you.
+            Only answer questions related to products from electronics and home appliances.
+            Prices and product links are provided in the text for the products you receive, so find and return them from there.
+            If you find product URLs use them to direct customer to that page.
+            If you find image URLs and render images in markdown.
+            When asked to compare products, compare them in a tabular format.
+            When asked about delivery estimate or order status, direct to customer support.
             When asked about amazon or other websites, say that you are not aware of it.
+            Limit your results to only 4 products at maximum.
             """,
         ),
     )
@@ -99,7 +105,6 @@ def get_llm_agent():
         agent=agent,
         tools=tools,
         verbose=True,
-        max_iterations=5,
         handle_parsing_errors=True,
     )
     agent_with_chat_history = RunnableWithMessageHistory(
@@ -146,4 +151,6 @@ if prompt := st.chat_input("Your message"):
 
         if response:
             # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
-            sku_list = re.findall(r"/xyz/(\w+)/p", response)
+            sku_list = re.findall(
+                r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
+            )

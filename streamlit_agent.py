@@ -61,7 +61,7 @@ def get_retriever():
     vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 5},
+        search_kwargs={"k": 10},
     )
     return retriever
 
@@ -91,6 +91,7 @@ def get_llm_agent():
             When asked to compare products, compare them in a tabular format.
             When asked about delivery estimate or order status, direct to customer support.
             When asked about amazon or other websites, say that you are not aware of it.
+            Limit your results to only 4 products at maximum.
             """,
         ),
     )
