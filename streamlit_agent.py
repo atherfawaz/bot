@@ -141,4 +141,6 @@ if prompt:
         response = result["output"]
         if response:
             # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
-            sku_list = re.findall(r"/xyz/(\w+)/p", response)
+            sku_list = re.findall(
+                r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
+            )
