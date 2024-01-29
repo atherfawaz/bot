@@ -203,9 +203,10 @@ if prompt := st.chat_input("Ask a question"):
                     "configurable": {"session_id": "<foo>"},
                 },
             )
-            st.chat_message(ASSISTANT).write(response["answer"])
+            result = response["answer"]
+            st.chat_message(ASSISTANT).write(result)
             if response:
                 # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
                 sku_list = re.findall(
-                    r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
+                    r"https://www.noon.com/saudi-en/xyz/(\w+)/p", result
                 )
