@@ -97,9 +97,7 @@ def get_llm_agent():
         ),
     )
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
-    agent_executor = AgentExecutor(
-        agent=agent, tools=tools, verbose=True, max_iterations=3
-    )
+    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
     agent_with_chat_history = RunnableWithMessageHistory(
         agent_executor,
         lambda session_id: history,
