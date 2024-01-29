@@ -1,26 +1,28 @@
 import re
+from typing import Any, List
 
 import streamlit as st
-
-# from devtools import debug
-# from dotenv import load_dotenv
+from devtools import debug
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
+from langchain.chains.query_constructor.base import AttributeInfo
 from langchain.memory import StreamlitChatMessageHistory
+from langchain.prompts import PromptTemplate
+from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.vectorstores.pinecone import Pinecone
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    PromptTemplate,
-    SystemMessagePromptTemplate,
-)
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate
+from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAI, OpenAIEmbeddings
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
@@ -59,20 +61,62 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
-    vectorstore = Pinecone.from_existing_index(
-        "catalog-v2",
-        OpenAIEmbeddings(),
-        "text",
+    llm = OpenAI(
+        temperature=0,
     )
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 5},
+    metadata_field_info = [
+        AttributeInfo(
+            name="image_url",
+            description="The link or URL of the image of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="price",
+            description="The price of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="product_url",
+            description="The link or URL of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="rating",
+            description="The rating of the product",
+            type="number",
+        ),
+        AttributeInfo(
+            name="sku",
+            description="The SKU or ID of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="title",
+            description="The title or the name of the product",
+            type="string",
+        ),
+    ]
+    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
+    retriever = SelfQueryRetriever.from_llm(
+        llm,
+        vectorstore,
+        "Product details and specifications",
+        metadata_field_info,
+        verbose=True,
     )
     return retriever
 
 
+class CustomRetriever(BaseRetriever):
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> List[Document]:
+        retriever = get_retriever()
+        return retriever.get_relevant_documents(query)
+
+
 def get_llm_agent():
-    retriever = get_retriever()
+    retriever = CustomRetriever()
     retriever_tool = create_retriever_tool(
         retriever,
         "search_catalog",
@@ -87,6 +131,7 @@ def get_llm_agent():
         prompt=PromptTemplate(
             input_variables=[],
             template="""
+            Don't modify the original prompt or query from the user.
             You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
             Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
             When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
@@ -94,6 +139,7 @@ def get_llm_agent():
             """,
         ),
     )
+    debug(agent_prompt)
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
     agent_executor = AgentExecutor(
         agent=agent,

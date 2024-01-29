@@ -1,8 +1,8 @@
 import re
 
 import streamlit as st
-
-# from dotenv import load_dotenv
+from devtools import debug
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
@@ -19,7 +19,7 @@ from langchain_core.prompts import (
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-# load_dotenv()
+load_dotenv()
 
 USER = "user"
 ASSISTANT = "ai"
