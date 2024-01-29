@@ -131,3 +131,4 @@ if prompt := st.chat_input("Your message"):
             },
         )
         response = result["output"]
+        st.chat_message(ASSISTANT).write(response)

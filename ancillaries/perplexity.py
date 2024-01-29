@@ -18,7 +18,6 @@ from typing import (
 )
 
 import requests
-from devtools import debug
 from langchain.callbacks.manager import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
@@ -283,6 +282,7 @@ class PerplexityChat(BaseChatModel):
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {os.getenv('PERPLEXITYAI_API_KEY')}",
                 },
+                stream=True,
                 data=json.dumps(payload),
             )
 
@@ -311,24 +311,17 @@ class PerplexityChat(BaseChatModel):
     ) -> Iterator[ChatGenerationChunk]:
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs, "stream": True}
-
-        default_chunk_class = AIMessageChunk
-        arr = []
+        buffer = bytes()
         for chunk in self.completion_with_retry(messages=message_dicts, **params):
-            debug(chunk)
-            arr.append(chunk)
-        debug(arr)
-        arr = [a.decode() for a in arr]
-        arr = "".join(arr)
-        chunk = json.loads(arr)
-        debug(arr)
-        to_process = chunk.decode()
-        delta = chunk["choices"][0]["delta"]
-        chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
-        default_chunk_class = chunk.__class__
-        yield ChatGenerationChunk(message=chunk)
+            buffer += chunk
+        j = buffer.decode()
+        j = json.loads(j)
+        delta = ""
+        content = j["choices"][0]["message"]["content"]
+        chunk = ChatGenerationChunk(message=AIMessageChunk(content=content))
+        yield chunk
         if run_manager:
-            run_manager.on_llm_new_token(chunk.content)
+            run_manager.on_llm_new_token(delta, chunk=chunk)
 
     def _generate(
         self,
@@ -337,16 +330,18 @@ class PerplexityChat(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        # if self.streaming:
-        #     stream_iter = self._stream(
-        #         messages=messages, stop=stop, run_manager=run_manager, **kwargs
-        #     )
-        #     return generate_from_stream(stream_iter)
+        if self.streaming:
+            stream_iter = self._stream(
+                messages=messages, stop=stop, run_manager=run_manager, **kwargs
+            )
+            return generate_from_stream(stream_iter)
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}
         response = self.completion_with_retry(messages=message_dicts, **params)
-        return self._create_chat_result(response)
+        completion = response.completion
+        message = AIMessage(content=completion)
+        return ChatResult(generations=[ChatGeneration(message=message)])
 
     def _create_message_dicts(
         self, messages: List[BaseMessage], stop: Optional[List[str]]
@@ -376,19 +371,18 @@ class PerplexityChat(BaseChatModel):
         run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
-        message_dicts, params = self._create_message_dicts(messages, stop)
-        params = {**params, **kwargs, "stream": True}
+        prompt = self._convert_messages_to_prompt(messages)
+        params: Dict[str, Any] = {"prompt": prompt, **self._default_params, **kwargs}
+        if stop:
+            params["stop_sequences"] = stop
 
-        default_chunk_class = AIMessageChunk
-        async for chunk in await acompletion_with_retry(
-            self, messages=message_dicts, **params
-        ):
-            delta = chunk["choices"][0]["delta"]
-            chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
-            default_chunk_class = chunk.__class__
-            yield ChatGenerationChunk(message=chunk)
+        stream_resp = await self.async_client.completions.create(**params, stream=True)
+        async for data in stream_resp:
+            delta = data.completion
+            chunk = ChatGenerationChunk(message=AIMessageChunk(content=delta))
+            yield chunk
             if run_manager:
-                await run_manager.on_llm_new_token(chunk.content)
+                await run_manager.on_llm_new_token(delta, chunk=chunk)
 
     async def _agenerate(
         self,
