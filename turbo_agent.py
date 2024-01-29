@@ -1,5 +1,8 @@
+import re
+
 import streamlit as st
 
+# from devtools import debug
 # from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
@@ -56,20 +59,16 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
-    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
+    vectorstore = Pinecone.from_existing_index(
+        "catalog-v2",
+        OpenAIEmbeddings(),
+        "text",
+    )
     retriever = vectorstore.as_retriever(
         search_type="mmr",
         search_kwargs={"k": 5},
     )
     return retriever
-
-
-# '''
-#             When asked about delivery estimate or order status, direct to customer support.
-#             When asked about amazon or other websites, say that you are not aware of it.
-# When comparing products, always do so in a tabular format and at the end suggest the best one to buy with its product link.
-# Along with important specifications, also compare price and rating in tabular format.
-# '''
 
 
 def get_llm_agent():
@@ -88,15 +87,27 @@ def get_llm_agent():
         prompt=PromptTemplate(
             input_variables=[],
             template="""
-            You are an ecommerce assistant, your context is limited to the data passed to you and nothing else.
-            Price, product_url, image_url for a product is provided in the text for the products you receive, so find them from there.
-            When given a price range in the search query, only show products that meet the criteria. If nothing meets it, say you don't have the products.
+            You are an ecommerce assistant of noon.com.
+            Your context is limited to the data passed to you.
+            Only answer questions related to products from electronics and home appliances.
+            Prices and product links are provided in the text for the products you receive, so find and return them from there.
+            If you find product URLs use them to direct customer to that page.
+            Do not return image details at all.
+            Limit your results to only 4 products at maximum.
+            When listing multiple products, write one line for each product describing its price and specifications.
+            When asked about specific details for a product, just concisely repond with that information only.
             When asked about amazon or other websites, say that you are not aware of it.
+            For problems or complaints, direct to customer support.
             """,
         ),
     )
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = AgentExecutor(
+        agent=agent,
+        tools=tools,
+        verbose=True,
+        handle_parsing_errors=True,
+    )
     agent_with_chat_history = RunnableWithMessageHistory(
         agent_executor,
         lambda session_id: history,
@@ -125,16 +136,25 @@ def get_llm_agent_from_session() -> LLMChain:
 initialize_session_state()
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
-if prompt := st.chat_input("Your message"):
-    st.chat_message(USER).write(prompt)
-    with st.spinner("Thinking..."):
-        stream_handler = StreamHandler(st.empty())
-        agent = get_llm_agent_from_session()
-        result = agent.invoke(
-            {"input": prompt},
-            config={
-                "callbacks": [stream_handler],
-                "configurable": {"session_id": "<foo>"},
-            },
-        )
-        response = result["output"]
+
+if prompt := st.chat_input("Ask a question"):
+    prompt = prompt.strip()
+    if prompt:
+        st.chat_message(USER).write(prompt)
+        with st.spinner("Thinking..."):
+            stream_handler = StreamHandler(st.empty())
+            agent = get_llm_agent_from_session()
+            result = agent.invoke(
+                {"input": prompt},
+                config={
+                    "callbacks": [stream_handler],
+                    "configurable": {"session_id": "<foo>"},
+                },
+            )
+            response = result["output"]
+
+            if response:
+                # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
+                sku_list = re.findall(
+                    r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
+                )
