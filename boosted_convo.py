@@ -55,8 +55,8 @@ class ChainMethod(Enum):
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        temperature=0.7,
-        model="gpt-3.5-turbo-1106",
+        temperature=0.2,
+        model="gpt-4-1106-preview",
         streaming=True,
         verbose=True,
         callbacks=[StreamingStdOutCallbackHandler()],

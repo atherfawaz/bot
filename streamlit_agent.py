@@ -86,11 +86,12 @@ def get_llm_agent():
             Your context is limited to the data passed to you.
             Only answer questions related to products from electronics and home appliances.
             Prices and product links are provided in the text for the products you receive, so find and return them from there.
+            When asked about specific details for a product, just concisely repond with that information only and not the entire product details.
             If you find product URLs use them to direct customer to that page.
             Do not return image details at all.
             Limit your results to only 4 products at maximum.
-            When listing multiple products, write one line for each product describing its price and specifications.
-            When asked about specific details for a product, just concisely repond with that information only.
+            When listing multiple products, write only one line for each product describing its price and specifications.
+            Minutes and Rocket are part of noon, so you should answer questions related to it.
             When asked about amazon or other websites, say that you are not aware of it.
             For problems or complaints, direct to customer support.
             """,
@@ -129,6 +130,7 @@ initialize_session_state()
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
 
+<<<<<<< Updated upstream
 if prompt := st.chat_input("Ask a question"):
     prompt = prompt.strip()
     if prompt:
@@ -149,3 +151,20 @@ if prompt := st.chat_input("Ask a question"):
                 sku_list = re.findall(
                     r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
                 )
+=======
+prompt: str = st.chat_input("Ask a question")
+if prompt:
+    st.chat_message(USER).write(prompt)
+    with st.spinner("Thinking..."):
+        stream_handler = StreamHandler(st.empty())
+        agent = get_llm_agent_from_session()
+        result = agent.invoke(
+            {"input": prompt},
+            config={
+                "callbacks": [stream_handler],
+                "configurable": {"session_id": "<foo>"},
+            },
+        )
+        print(f"result: {result.keys()}")
+        response = result["output"]
+>>>>>>> Stashed changes
