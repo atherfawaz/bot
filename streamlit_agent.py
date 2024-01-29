@@ -86,7 +86,6 @@ def get_llm_agent():
             Your context is limited to the data passed to you.
             Only answer questions related to products from electronics and home appliances.
             Prices and product links are provided in the text for the products you receive, so find and return them from there.
-            When asked about specific details for a product, just concisely repond with that information only and not the entire product details.
             If you find product URLs use them to direct customer to that page.
             Do not return image details at all.
             Limit your results to only 4 products at maximum.
