@@ -130,7 +130,6 @@ initialize_session_state()
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
 
-<<<<<<< Updated upstream
 if prompt := st.chat_input("Ask a question"):
     prompt = prompt.strip()
     if prompt:
@@ -151,20 +150,3 @@ if prompt := st.chat_input("Ask a question"):
                 sku_list = re.findall(
                     r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
                 )
-=======
-prompt: str = st.chat_input("Ask a question")
-if prompt:
-    st.chat_message(USER).write(prompt)
-    with st.spinner("Thinking..."):
-        stream_handler = StreamHandler(st.empty())
-        agent = get_llm_agent_from_session()
-        result = agent.invoke(
-            {"input": prompt},
-            config={
-                "callbacks": [stream_handler],
-                "configurable": {"session_id": "<foo>"},
-            },
-        )
-        print(f"result: {result.keys()}")
-        response = result["output"]
->>>>>>> Stashed changes
