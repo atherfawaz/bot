@@ -61,7 +61,7 @@ def get_retriever():
     vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 5},
+        search_kwargs={"k": 10},
     )
     return retriever
 
@@ -87,15 +87,19 @@ def get_llm_agent():
             Only answer questions related to products from electronics and home appliances.
             Prices and product links are provided in the text for the products you receive, so find and return them from there.
             If you find product URLs use them to direct customer to that page.
-            If you find image URLs and render images in markdown.
-            When asked to compare products, compare them in a tabular format.
-            When asked about delivery estimate or order status, direct to customer support.
+            Do not return image details at all.
+            Limit your results to only 4 products at maximum.
+            When listing multiple products, write one line for each product describing its price and specifications.
+            When asked about specific details for a product, just concisely repond with that information only.
             When asked about amazon or other websites, say that you are not aware of it.
+            For problems or complaints, direct to customer support.
             """,
         ),
     )
     agent = create_openai_tools_agent(llm, tools, agent_prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+    agent_executor = AgentExecutor(
+        agent=agent, tools=tools, verbose=True, max_iterations=3
+    )
     agent_with_chat_history = RunnableWithMessageHistory(
         agent_executor,
         lambda session_id: history,
@@ -125,20 +129,23 @@ initialize_session_state()
 for msg in history.messages:
     st.chat_message(msg.type).write(msg.content)
 
-prompt: str = st.chat_input("Ask a question")
-if prompt:
-    st.chat_message(USER).write(prompt)
-    with st.spinner("Thinking..."):
-        stream_handler = StreamHandler(st.empty())
-        agent = get_llm_agent_from_session()
-        result = agent.invoke(
-            {"input": prompt},
-            config={
-                "callbacks": [stream_handler],
-                "configurable": {"session_id": "<foo>"},
-            },
-        )
-        response = result["output"]
-        if response:
-            # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
-            sku_list = re.findall(r"/xyz/(\w+)/p", response)
+if prompt := st.chat_input("Ask a question"):
+    prompt = prompt.strip()
+    if prompt:
+        st.chat_message(USER).write(prompt)
+        with st.spinner("Thinking..."):
+            stream_handler = StreamHandler(st.empty())
+            agent = get_llm_agent_from_session()
+            result = agent.invoke(
+                {"input": prompt},
+                config={
+                    "callbacks": [stream_handler],
+                    "configurable": {"session_id": "<foo>"},
+                },
+            )
+            response = result["output"]
+            if response:
+                # extract SKUs from product URLs https://www.noon.com/saudi-en/xyz/N18958831A/p
+                sku_list = re.findall(
+                    r"https://www.noon.com/saudi-en/xyz/(\w+)/p", response
+                )
