@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from enum import Enum
 
 import streamlit as st
-from dotenv import load_dotenv
+
+# from dotenv import load_dotenv
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import (
@@ -19,7 +20,7 @@ from langchain_openai import OpenAIEmbeddings
 
 from ancillaries.perplexity import PerplexityChat
 
-load_dotenv()
+# load_dotenv()
 
 history = StreamlitChatMessageHistory()
 
