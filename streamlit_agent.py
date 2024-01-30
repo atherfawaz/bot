@@ -48,7 +48,7 @@ class StreamHandler(BaseCallbackHandler):
 @st.cache_resource
 def get_llm() -> ChatOpenAI:
     return ChatOpenAI(
-        temperature=0,
+        temperature=0.1,
         model="gpt-4-1106-preview",
         streaming=True,
         verbose=True,
@@ -58,7 +58,7 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
-    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
+    vectorstore = Pinecone.from_existing_index("catalog-v3", OpenAIEmbeddings(), "text")
     retriever = vectorstore.as_retriever(
         search_type="mmr",
         search_kwargs={"k": 10},
