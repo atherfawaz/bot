@@ -60,7 +60,7 @@ def get_llm() -> ChatOpenAI:
 @st.cache_resource
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
-        "catalog-v2",
+        "catalog-v3",
         OpenAIEmbeddings(),
         "text",
     )
@@ -89,6 +89,7 @@ def get_llm_agent():
             template="""
             Your name is Nora, and you are an ecommerce assistant of noon.com.
             Your context is limited to the data passed to you.
+            If the data passed to you does not fit the question, then ask the user to rephrase the query and try again, do not apologize in any case.
             Only answer questions related to products from electronics and home appliances.
             Prices and product links are provided in the text for the products you receive, so find and return them from there.
             If you find product URLs use them to direct customer to that page.
