@@ -105,6 +105,7 @@ def get_retriever():
         "Product details and specifications",
         metadata_field_info,
         verbose=True,
+        use_original_query=True,
     )
     return retriever
 

@@ -1,26 +1,26 @@
 import re
 
 import streamlit as st
-
-# from devtools import debug
-# from dotenv import load_dotenv
+from devtools import debug
+from dotenv import load_dotenv
 from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import LLMChain
+from langchain.chains.query_constructor.base import AttributeInfo
 from langchain.memory import StreamlitChatMessageHistory
+from langchain.prompts import PromptTemplate
+from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.tools.retriever import create_retriever_tool
 from langchain_community.vectorstores.pinecone import Pinecone
-from langchain_core.prompts import (
-    ChatPromptTemplate,
-    PromptTemplate,
-    SystemMessagePromptTemplate,
-)
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-# load_dotenv()
+history = StreamlitChatMessageHistory()
+load_dotenv()
+
 
 USER = "user"
 ASSISTANT = "ai"
@@ -59,14 +59,49 @@ def get_llm() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
-    vectorstore = Pinecone.from_existing_index(
-        "catalog-v2",
-        OpenAIEmbeddings(),
-        "text",
+    llm = ChatOpenAI(
+        temperature=0,
     )
-    retriever = vectorstore.as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": 5},
+    metadata_field_info = [
+        AttributeInfo(
+            name="image_url",
+            description="The link or URL of the image of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="price",
+            description="The price of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="product_url",
+            description="The link or URL of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="rating",
+            description="The rating of the product",
+            type="number",
+        ),
+        AttributeInfo(
+            name="sku",
+            description="The SKU or ID of the product",
+            type="string",
+        ),
+        AttributeInfo(
+            name="title",
+            description="The title or the name of the product",
+            type="string",
+        ),
+    ]
+    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
+    retriever = SelfQueryRetriever.from_llm(
+        llm,
+        vectorstore,
+        "Product details and specifications",
+        metadata_field_info,
+        use_original_query=True,
+        verbose=True,
     )
     return retriever
 
