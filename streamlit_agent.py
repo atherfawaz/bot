@@ -46,10 +46,21 @@ class StreamHandler(BaseCallbackHandler):
 
 
 @st.cache_resource
-def get_llm() -> ChatOpenAI:
+def get_gpt3() -> ChatOpenAI:
     return ChatOpenAI(
         temperature=0.1,
-        model="gpt-4-1106-preview",
+        model="gpt-3.5-turbo-1106",
+        streaming=True,
+        verbose=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+    )
+
+
+@st.cache_resource
+def get_gpt4() -> ChatOpenAI:
+    return ChatOpenAI(
+        temperature=0.1,
+        model="gpt-4-0125-preview",
         streaming=True,
         verbose=True,
         callbacks=[StreamingStdOutCallbackHandler()],
@@ -76,7 +87,7 @@ def get_llm_agent():
     tools = []
     tools.append(retriever_tool)
 
-    llm = get_llm()
+    llm = get_gpt4()
     agent_prompt: ChatPromptTemplate = hub.pull("hwchase17/openai-tools-agent")
     agent_prompt.messages[0] = SystemMessagePromptTemplate(
         prompt=PromptTemplate(
