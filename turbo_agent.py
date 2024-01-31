@@ -58,9 +58,20 @@ def get_llm() -> ChatOpenAI:
 
 
 @st.cache_resource
+def get_gpt4_llm() -> ChatOpenAI:
+    return ChatOpenAI(
+        temperature=0,
+        model="gpt-4-turbo-preview",
+        streaming=True,
+        verbose=True,
+        callbacks=[StreamingStdOutCallbackHandler()],
+    )
+
+
+@st.cache_resource
 def get_retriever():
     vectorstore = Pinecone.from_existing_index(
-        "catalog-v3",
+        "catalog-v2",
         OpenAIEmbeddings(),
         "text",
     )
