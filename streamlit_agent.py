@@ -59,7 +59,7 @@ def get_gpt3() -> ChatOpenAI:
 @st.cache_resource
 def get_gpt4() -> ChatOpenAI:
     return ChatOpenAI(
-        temperature=0.1,
+        temperature=0.7,
         model="gpt-4-0125-preview",
         streaming=True,
         verbose=True,
@@ -69,10 +69,10 @@ def get_gpt4() -> ChatOpenAI:
 
 @st.cache_resource
 def get_retriever():
-    vectorstore = Pinecone.from_existing_index("catalog-v3", OpenAIEmbeddings(), "text")
+    vectorstore = Pinecone.from_existing_index("catalog-v2", OpenAIEmbeddings(), "text")
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 10},
+        search_kwargs={"k": 12},
     )
     return retriever
 
