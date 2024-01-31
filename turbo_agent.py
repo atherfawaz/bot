@@ -66,7 +66,7 @@ def get_retriever():
     )
     retriever = vectorstore.as_retriever(
         search_type="mmr",
-        search_kwargs={"k": 5},
+        search_kwargs={"k": 7},
     )
     return retriever
 
