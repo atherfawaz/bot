@@ -1,1 +1,1 @@
-from . import perplexity, wasm
+from . import perplexity
